@@ -1,6 +1,4 @@
 import numpy as np
-from scipy.spatial.distance import cdist
-
 class Recall:
     def compute_recall(self, neighbors, ground_truth):
         total = 0
