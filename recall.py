@@ -10,7 +10,7 @@ class Recall:
             total += np.intersect1d(gt_row, row).shape[0]
         return total / ground_truth.size
 
-    def brute_force_search(self, target_set, test_set, metric):
+    def brute_force_search(self, target_set, test_set, metric="l2_distance"):
         if metric != "dot_product" and metric != "l2_distance":
             raise Exception(f"not suport {metric},optional:l2_distance or dot_product")
 
@@ -154,7 +154,30 @@ class Recall_PQ(Recall):
             q = queries[i]
             neighbors_matrix[i] = self.search_neightbors(q, topk)
 
+        self.neighbors_matrix = neighbors_matrix
+
         return neighbors_matrix
+
+    def pq_recall(self, queries, topk, ground_truth):
+        ground_truth = np.array(ground_truth)
+
+        try:
+            neighbors_matrix = self.neighbors_matrix[:,0:topk]
+            if topk > neighbors_matrix.shape[1]:
+                neighbors_matrix = self.neighbors(queries,topk)
+
+        except AttributeError:
+            neighbors_matrix = self.neighbors(queries,topk)
+
+        recall = self.compute_recall(neighbors_matrix,ground_truth)
+
+        nr = neighbors_matrix.shape[1]
+        if ground_truth.ndim == 1:
+            ng = 1
+        if ground_truth.ndim == 2 :
+            ng = ground_truth.shape[1]
+        
+        print(f"recall {ng}@{nr} = {recall}")
 
 class Recall_PQIVF(Recall_PQ):
     """
@@ -174,14 +197,14 @@ class Recall_PQIVF(Recall_PQ):
         query (np.ndarray): Input vector with shape=(D, )
 
         vq_code_book (np.ndarray): shape=(k', D) with dtype=np.float32.
-            codebook[m] means m-th codeword (D-dim)
+            vq_code_book[m] means m-th codeword (D-dim)
 
         vq_codes (np.ndarray): VQ codes with shape=(n, ) and dtype=np.int
 
         topk (int): this method will return topk neighbors
     """
 
-    def __init__(self, M, Ks, D, pq_codebook, pq_codes,vq_codes, vq_code_book, metric) -> None:
+    def __init__(self, M, Ks, D, pq_codebook, pq_codes, vq_code_book,vq_codes, metric) -> None:
         super().__init__(M, Ks, D, pq_codebook, pq_codes, metric=metric)
         self.vq_codes = vq_codes
         self.vq_code_book = vq_code_book
@@ -199,71 +222,94 @@ class Recall_PQIVF(Recall_PQ):
             index += self.vq_cluster[i]
         return index
 
+    @profile
     def _vq(self, query, num_centroids_to_search):
         if self.metric == "dot_product":
             inner_M = self.vq_code_book @ query
-            c_id = np.argsort(inner_M)[:, -num_centroids_to_search:]
+            c_id = np.argsort(inner_M)[-num_centroids_to_search:]
             c_id = np.flip(c_id)
 
             inner_1 = inner_M[c_id]
 
-            return c_id, inner_1  # c_id:从大到小 the index of argsort inner(queries,code_book)
+            return c_id, inner_1  
 
-        # to l2_distance
+        if self.metric == "l2_distance":
+            dist = np.linalg.norm(query-self.vq_code_book,axis=1)**2
+            c_id = np.argsort(dist)[0:num_centroids_to_search]
 
-    def search_neightbor_IVFADC(self, query, c_i, q_inner_1,num_centroids_to_search, topk=64):
-        '''
-        c_i = c_id[query_id]  
-        return:从小到大的内积(非对称内积计算),1维np.array
-        '''
+            dist1 = dist[c_id]
+            return c_id, dist1            
+
+    @profile
+    def search_neighbors_IVFADC(self, query, num_centroids_to_search, topk=64):
         metric = self.metric
-        C = self.pq_codebook
         pq_codebook = self.pq_codebook
         pq_codes = self.pq_codes
 
         M = self.M
-        Ks = self.Ks
         Ds = self.Ds
 
-        cluster_id,inner1 = self._vq(query,num_centroids_to_search)
+        cluster_id,adc1 = self._vq(query,num_centroids_to_search)
         index = self.dataIndex_tosearch(cluster_id)
 
-        q = query.reshape(M, Ds)
+        if len(index) < topk:
+            raise Exception("num_centroids_to_search are too small")
+
+        adc = np.zeros(len(index))
+
+        # i1 = 0
+        # i2 = 0
+        # for i,a1 in zip(cluster_id,adc1):
+        #     i2 += len(self.vq_cluster[i])
+        #     adc[i1:i2] = a1
+        #     i1 = i2
+
         if metric == "dot_product":
+            q = query.reshape(M, Ds)
+            adc = np.array([adc1[i]  for i in range(num_centroids_to_search) for j in range(len(self.vq_cluster[cluster_id[i]]))])
+
             lookup_table = np.matmul(pq_codebook, q[:, :, np.newaxis])[:, :, 0]
-            i1 = np.arange(M)
-            inner_prod = np.sum(lookup_table[i1, pq_codes[index, :]], axis=1)  
-            return inner_prod
-
+            inner_prod_2 = np.sum(lookup_table[range(M), pq_codes[index, :]], axis=1)  
+            adc = adc + inner_prod_2
+            
         if metric == "l2_distance":
-            lookup_table =  np.linalg.norm(pq_codebook - q[:, np.newaxis,:], axis=2) ** 2
-            dists = np.sum(lookup_table[range(M), pq_codes[index, :]], axis=1)
-            return dists
+            i1 = 0
+            i2 = 0
+            for i in cluster_id:
+                q_i = query - self.vq_code_book[i]
+                q_i = q_i.reshape(M, Ds)
 
+                lookup_table =  np.linalg.norm(pq_codebook - q_i[:, np.newaxis,:], axis=2) ** 2
+                dists = np.sum(lookup_table[range(M), pq_codes[self.vq_cluster[i], :]], axis=1)
+                
+                i2 += len(self.vq_cluster[i])
+                adc[i1:i2] = dists
+                i1 = i2
+        index = np.array(index)
+        return index[self._sort_topk_adc_score(adc,topk)]
 
+    def neighbors_ivf(self,queries,num_centroids_to_search,topk):
+        n = queries.shape[0]
+        neighbors_matrix = np.zeros((n, topk), dtype=int)
+        for i in range(n):
+            q = queries[i]
+            neighbors_matrix[i] = self.search_neighbors_IVFADC(q,num_centroids_to_search, topk)
 
-        i1 = np.arange(M)
+        return neighbors_matrix
 
-        n = pq_codes.shape[0]
-        inner = np.zeros(n)
-        for centroid_id, inner_1 in zip(c_i, q_inner_1):
-            index = self.inv_tab[centroid_id]
-            quantization_inner_2 = np.sum(Table[i1, pq_codes[index, :]], axis=1)  # 长度为第i个类中的数目个数
-            inner[index] = inner_1 + quantization_inner_2
+    def pqivf_recall(self,queries,num_centroids_to_search,topk,ground_truth):
+        ground_truth = np.array(ground_truth)
 
-        q_ci = self.transform(c_i)
-        assert len(q_ci) > top_k
-        bool = np.full(n, True)
-        bool[q_ci] = False
-        inner[bool] = -np.inf
-
-        ind = np.argpartition(inner, -top_k)[-top_k:]
-        return ind[np.argsort(inner[ind])]
-
-    def ivf_search_neightbors(self,query,topk):
-
-        adc_score = self.compute_distance(query)
-        return self._sort_topk_adc_score(adc_score,topk)        
+        neighbors_matrix = self.neighbors_ivf(queries, num_centroids_to_search,  topk)
+        recall = self.compute_recall(neighbors_matrix,ground_truth)
+        
+        nr = neighbors_matrix.shape[1]
+        if ground_truth.ndim == 1:
+            ng = 1
+        if ground_truth.ndim == 2 :
+            ng = ground_truth.shape[1]
+        
+        print(f"recall {ng}@{nr} = {recall}")     
 
 
     

@@ -3,6 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 .ipynb_checkpoints
-git.sh
-test.py
-test_catech.py
+
+archive
+test_*.py
