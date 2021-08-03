@@ -1,4 +1,5 @@
 import numpy as np
+
 class Recall:
     def compute_recall(self, neighbors, ground_truth):
         total = 0
