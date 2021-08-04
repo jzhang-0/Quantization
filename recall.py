@@ -159,10 +159,10 @@ class Recall_PQ(Recall):
         ground_truth = np.array(ground_truth)
 
         try:
-            neighbors_matrix = self.neighbors_matrix[:, 0:topk]
-            if topk > neighbors_matrix.shape[1]:
+            if topk > self.neighbors_matrix.shape[1]:
                 neighbors_matrix = self.neighbors(queries, topk)
-
+            else:
+                neighbors_matrix = self.neighbors_matrix[:, 0:topk]
         except AttributeError:
             neighbors_matrix = self.neighbors(queries, topk)
 
