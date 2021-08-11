@@ -1,5 +1,5 @@
 ```
-pip intsall evaluationRecall
+pip install evaluationRecall
 ```
 
 see examples/demo.ipynb
