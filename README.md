@@ -2,4 +2,4 @@
 pip install evaluationRecall
 ```
 
-see examples/demo.ipynb
+see [demo](examples/demo.ipynb)
