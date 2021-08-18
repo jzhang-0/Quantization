@@ -5,9 +5,9 @@ __pycache__/
 .ipynb_checkpoints
 
 archive
+tests
 test_*.py
 
-sbin
 *.sh
 
 dist
