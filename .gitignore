@@ -8,6 +8,7 @@ archive
 tests
 test_*.py
 
+bin
 *.sh
 
 dist

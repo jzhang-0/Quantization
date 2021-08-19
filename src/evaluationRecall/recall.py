@@ -1,11 +1,12 @@
 import numpy as np
 
+
 class Recall:
     def __init__(self, metric) -> None:
         self.metric = metric
         if metric != "dot_product" and metric != "l2_distance":
             raise Exception(f"not suport {metric},optional:l2_distance or dot_product")
-        
+
     def compute_recall(self, neighbors, ground_truth):
         total = 0
         for gt_row, row in zip(ground_truth, neighbors):
@@ -40,6 +41,7 @@ class Recall:
         if metric == "l2_distance":
             ind = np.argpartition(adc_score, topk)[0:topk]
             return ind[np.argsort(adc_score[ind])]
+
 
 class Recall_PQ(Recall):
     """
@@ -77,7 +79,7 @@ class Recall_PQ(Recall):
     """
 
     def __init__(self, M, Ks, D, pq_codebook, pq_codes, metric="l2_distance") -> None:
-        Recall.__init__(self,metric)
+        Recall.__init__(self, metric)
         self.M = M
         self.Ks = Ks
         self.D = D
@@ -88,15 +90,12 @@ class Recall_PQ(Recall):
         self.pq_codes = pq_codes
         assert pq_codebook.shape == (M, Ks, self.Ds), "pq_codebook.shape must equal to (M,Ks,Ds)"
 
-
     def compute_distance(self, query):
         """
-        The distances (the squared Euclidean distance or inner product) are computed by comparing each sub-vector of the query
-        to the codewords for each sub-subspace.
-        `lookup_table[m][ks]` contains the squared Euclidean distance or inner product between
-        the `m`-th sub-vector of the query and the `ks`-th codeword
-        for the `m`-th sub-space (`self.codewords[m][ks]`).
-        By looking up table to compute distance.
+        The distances (the squared Euclidean distance or inner product) are computed by comparing each sub-vector of
+        the query to the codewords for each sub-subspace. `lookup_table[m][ks]` contains the squared Euclidean
+        distance or inner product between the `m`-th sub-vector of the query and the `ks`-th codeword for the `m`-th
+        sub-space (`self.codewords[m][ks]`). By looking up table to compute distance.
 
         Args:
             query (np.ndarray): Input vector with shape=(D, ) 
@@ -122,7 +121,6 @@ class Recall_PQ(Recall):
             lookup_table = np.linalg.norm(pq_codebook - q[:, np.newaxis, :], axis=2) ** 2
             dists = np.sum(lookup_table[range(M), codes], axis=1)
             return dists
-
 
     def search_neighbors(self, query, topk):
         """
@@ -201,6 +199,7 @@ class Recall_AQ(Recall):
             aq_codebooks[0:K,:] represents the K codewords in the first codebook
             aq_codebooks[(m-1)*K:mK,:] represents the K codewords in the m-th codebook
         aq_codes (np.ndarray): AQ codes with shape=(n, M) and dtype=np.int, where n is the number of encoded datapoints
+            aq_codes[i,j] is in {0,1,...,K-1} for all i,j 
         metric (str): dot_product or l2_distance        
     
     Attributes:
@@ -214,8 +213,8 @@ class Recall_AQ(Recall):
     """
 
     def __init__(self, M, K, D, aq_codebooks, aq_codes, metric="l2_distance") -> None:
-        Recall.__init__(self,metric)
-        assert aq_codebooks.shape == (M*K, D), "aq_codebooks.shape must equal to (M*K, D)"
+        Recall.__init__(self, metric)
+        assert aq_codebooks.shape == (M * K, D), "aq_codebooks.shape must equal to (M*K, D)"
         assert aq_codes.shape[1] == M, "aq_codebooks.shape must equal to (n, M)"
 
         self.M = M
@@ -224,14 +223,14 @@ class Recall_AQ(Recall):
         self.aq_codebooks = aq_codebooks
         self.aq_codes = aq_codes
 
-        self.aq_codes_2 = aq_codes + np.arange(M)*K
+        self.aq_codes_2 = aq_codes + np.arange(M) * K
 
         if self.metric == "l2_distance":
             n = aq_codes.shape[0]
             self.norm_sq = np.zeros(n)
             for i in range(n):
-                x = np.sum(aq_codebooks[self.aq_codes_2[i]],axis=0)
-                self.norm_sq[i]=np.vdot(x,x)
+                x = np.sum(aq_codebooks[self.aq_codes_2[i]], axis=0)
+                self.norm_sq[i] = np.vdot(x, x)
 
     def compute_distance(self, query):
         """
@@ -258,9 +257,8 @@ class Recall_AQ(Recall):
             lookup_table = aq_codebooks @ query
             inner_prod = np.sum(lookup_table[codes_2], axis=1)
 
-            dists = np.vdot(query, query) + self.norm_sq - 2*inner_prod
+            dists = np.vdot(query, query) + self.norm_sq - 2 * inner_prod
             return dists
-
 
     def search_neighbors(self, query, topk):
         """
