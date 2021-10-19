@@ -1,4 +1,4 @@
-__all__ = ["Recall_PQ", "Recall_PQIVF", "Recall_AQ"]
+__all__ = ["SearchNeighbors_PQ", "SearchNeighbors_AQ", "SearchNeighbors_PQIVF"]
 
-from .recall import Recall_PQ, Recall_AQ
-from .recall_ivf import Recall_PQIVF
+from .neighbors import SearchNeighbors_PQ, SearchNeighbors_AQ
+from .neighbors_ivf import SearchNeighbors_PQIVF
