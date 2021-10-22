@@ -13,3 +13,13 @@ bin
 
 dist
 *.egg-info
+test
+
+*.c
+build
+t.py
+setup.py
+*.so
+*.pyx
+neighbors_test.py
+

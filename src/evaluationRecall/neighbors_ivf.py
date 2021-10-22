@@ -1,6 +1,6 @@
 import numpy as np
 from .neighbors import SearchNeighbors_PQ
-from .utils import timefn,for_all_methods
+from .utils import timefn, for_all_methods
 
 class SearchNeighbors_PQIVF(SearchNeighbors_PQ):
     """

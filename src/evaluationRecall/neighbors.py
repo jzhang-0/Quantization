@@ -3,6 +3,7 @@ import numpy as np
 from joblib import Parallel, delayed, dump,load
 from .utils import timefn,for_all_methods
 njobs = 20 # os.cpu_count()//2
+from numba import jit
 
 def compute_recall(neighbors, ground_truth):
     total = 0
@@ -39,18 +40,26 @@ def recall_atN(neighbors_matrix,ground_truth):
     """
     Args:
         neighbors_matrix:(nq,topK=512)
-        ground_truth:(nq,100)
+        ground_truth:(nq,) or (nq,>=10)
     """
-    ground_truth_1 = ground_truth[:,0]
-    ground_truth_10 = ground_truth[:,0:10]
-    r1, N1 = recall_atN_(neighbors_matrix,ground_truth_1)
-    print("\n")
-    r10, N10 = recall_atN_(neighbors_matrix,ground_truth_10)
-    print("\n")
-    print(f"N={N1}")
-    print(f"recall1@N:{r1}")
-    print(f"N={N10}")
-    print(f"recall10@N:{r10}")
+    if ground_truth.ndim == 2 :
+        ground_truth_1 = ground_truth[:,0]
+        ground_truth_10 = ground_truth[:,0:10]
+        r1, N1 = recall_atN_(neighbors_matrix,ground_truth_1)
+        print("\n")
+        r10, N10 = recall_atN_(neighbors_matrix,ground_truth_10)
+        print("\n")
+        print(f"N={N1}")
+        print(f"recall1@N:{r1}")
+        print(f"N={N10}")
+        print(f"recall10@N:{r10}")
+
+    if ground_truth.ndim == 1 :
+        r1, N1 = recall_atN_(neighbors_matrix, ground_truth)
+        print("\n")
+        print(f"N={N1}")
+        print(f"recall1@N:{r1}")
+
 
 class SearchNeighbors:
     def __init__(self, metric) -> None:
@@ -83,12 +92,17 @@ class SearchNeighbors:
             gt = np.argmin(gt_distance, axis=1)
             return gt
 
+    # @jit
     def _sort_topk_adc_score(self, adc_score, topk):
         metric = self.metric
 
         if metric == "dot_product":
-            ind = np.argpartition(adc_score, -topk)[-topk:]
-            return np.flip(ind[np.argsort(adc_score[ind])])
+            ind_t = np.argpartition(adc_score, -topk)
+            ind = ind_t[-topk:]
+            t1 = np.argsort(adc_score[ind])
+            t2 = ind[t1]
+            t3 = np.flip(t2)
+            return t3
 
         if metric == "l2_distance":
             ind = np.argpartition(adc_score, topk)[0:topk]
@@ -144,7 +158,7 @@ class SearchNeighbors_PQ(SearchNeighbors):
         for i in range(M):
             self.index[:,i] = i
 
-
+    # @jit
     def compute_distance(self, query):
         """
         The distances (the squared Euclidean distance or inner product) are computed by comparing each sub-vector of
