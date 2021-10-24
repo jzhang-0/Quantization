@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .ipynb_checkpoints
+.vscode
 
 archive
 tests
@@ -23,3 +24,4 @@ setup.py
 *.pyx
 neighbors_test.py
 
+Neighbors_C
