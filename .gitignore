@@ -27,3 +27,4 @@ neighbors_test.py
 Neighbors_C
 Neighbors_jl
 Neighbors_matlab
+*.npy
