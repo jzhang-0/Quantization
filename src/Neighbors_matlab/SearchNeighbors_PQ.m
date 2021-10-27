@@ -1,6 +1,4 @@
 classdef SearchNeighbors_PQ
-    %UNTITLED 此处显示有关此类的摘要
-    %   此处显示详细说明
     
     properties
         M
@@ -14,8 +12,6 @@ classdef SearchNeighbors_PQ
     
     methods
         function obj = SearchNeighbors_PQ(M,Ks,D,pq_codebook,pq_codes)
-            %UNTITLED 构造此类的实例
-            %   此处显示详细说明
             obj.M = M;
             obj.Ks = Ks;
             obj.D = D;
@@ -24,14 +20,7 @@ classdef SearchNeighbors_PQ
             obj.pq_codes = pq_codes;
         end
         
-        function val(obj)
-            fprintf("%d",obj.M)
-        end        
-        function test(obj)
-            %UNTITLED 构造此类的实例
-            %   此处显示详细说明
-            obj.val()
-        end
+    end
         
         function score = compute_distance(obj,query)
 %             pq_codebook = obj.pq_codebook;
@@ -49,20 +38,20 @@ classdef SearchNeighbors_PQ
                 lookup_table(i,:) = cii*q(:,i);
             end
             %%%%%%%%%%%%%%%%%%%%
-            % value = lookup_table(obj.pq_codes); % 耗时 80%
-            % score = sum(value,2);
+            value = lookup_table(obj.pq_codes); % 耗时 80%
+            score = sum(value,2);
             %%%%%%%%%%%%%%%%%%%%
 
             %%%%%%%%%%%%%%%%%%%%
-            [n,~] = size(obj.pq_codes);
-            score = zeros(n, 1);
-            for i = 1:n
-                s_ = 0;
-                for j = 1:obj.M
-                    s_ = s_ + lookup_table(j,obj.pq_codes(i,j));
-                end
-                score(i) = s_;
-            end
+            % [n,~] = size(obj.pq_codes);
+            % score = zeros(n, 1);
+            % for i = 1:n
+            %     s_ = 0;
+            %     for j = 1:obj.M
+            %         s_ = s_ + lookup_table(j,obj.pq_codes(i,j));
+            %     end
+            %     score(i) = s_;
+            % end
             %%%%%%%%%%%%%%%%%%%%
 
 
@@ -77,15 +66,7 @@ classdef SearchNeighbors_PQ
                 neighbors_matrix(i,:) = obj.topk_indices(score,topk);                
             end
         end
-%         function outputArg = method1(obj,inputArg)
-%             %METHOD1 此处显示有关此方法的摘要
-%             %   此处显示详细说明
-%             outputArg = obj.Property1 + inputArg;
-%         end
 
-% function topk_indices(adc_score, topk)
-%     maxk()
-% end
     end
     methods(Static)
         function pp(a)

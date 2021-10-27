@@ -1,5 +1,4 @@
-% addpath("C:\\Users\\14027\\matlab_ex\\npy-matlab\\npy-matlab")
-addpath("/amax/home/zhangjin/scann+/QuantizationEvaluation/src/Neighbors_matlab/npy-matlab/npy-matlab")
+addpath("src/Neighbors_matlab/npy-matlab/npy-matlab")
 codebook = readNPY('codebook.npy');
 code = readNPY('code_M8_K16_sample_num10000.npy');
 code = code + 1;
