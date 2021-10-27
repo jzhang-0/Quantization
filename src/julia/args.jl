@@ -65,3 +65,13 @@ function args_vq(s)
         default = "-1"
     end
 end
+
+function args_recall(s)
+    @add_arg_table s begin
+        "--num_leaves_to_search"
+        help = "num_leaves_to_search"
+        arg_type = Int
+        default = 20
+
+    end
+end

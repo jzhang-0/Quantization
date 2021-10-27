@@ -21,7 +21,7 @@ build
 t.py
 setup.py
 *.so
-*.pyx
+# *.pyx
 neighbors_test.py
 
 Neighbors_C

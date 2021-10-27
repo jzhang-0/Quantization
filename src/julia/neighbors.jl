@@ -45,7 +45,7 @@ module SN_pq
         end    
     end
 
-    function compute_table(codebook::Array{Float32,3}, query::Array{Float64,1})
+    function compute_table(codebook::Array{Float32,3}, query::Array{<:AbstractFloat,1})
         M, Ks, Ds = size(codebook) 
         lookuptable = zeros(M, Ks);
         for i in 1:M
@@ -171,7 +171,7 @@ module SN_pqivf
         end 
     end
 
-    function id_indexed(spi::AbstractSN, index::SubArray{Int64, 1}, scores_v::Vector{Float64})
+    function id_indexed(spi::AbstractSN, index::SubArray{Int64, 1}, scores_v::Vector{<:AbstractFloat})
         ids = [] # Array{Int64,1}
         scores_vq = []
         for (i,s) in zip(index,scores_v)
@@ -205,7 +205,7 @@ module SN_pqivf
         return ids_
     end
 
-    function get_neighbors(spi::AbstractSN, queries::Array{Float64,2}, num_centroid_tosearch::Int,  topk::Int)
+    function get_neighbors(spi::AbstractSN, queries::Array{<:AbstractFloat,2}, num_centroid_tosearch::Int,  topk::Int)
         n = size(queries)[1];
         neighbors_matrix = zeros(Int,n,topk)
         Threads.@threads for i in 1:n
