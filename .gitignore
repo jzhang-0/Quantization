@@ -28,3 +28,9 @@ Neighbors_C
 Neighbors_jl
 Neighbors_matlab
 *.npy
+
+NumCpp
+NumCpp_lib
+xtensor
+*.out
+time
