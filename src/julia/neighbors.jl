@@ -182,7 +182,7 @@ module SN_pqivf
         end
         ids = convert(Array{Int64,1}, ids)
         scores_vq = convert(Array{Float64,1}, scores_vq)
-        return ids,scores_vq
+        return ids, scores_vq
     end
 
     function search_neighbors(spi::AbstractSN, q::Vector{<:AbstractFloat}, num_centroid_tosearch::Int, topk::Int)
