@@ -1,0 +1,9 @@
+{
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+    // "python.linting.pylintPath":"pylint",
+    "python.analysis.extraPaths": [
+        "/amax/home/zhangjin/miniconda3",
+        "/amax/home/zhangjin/miniconda3/lib/python3.8/site-packages"
+    ]
+}

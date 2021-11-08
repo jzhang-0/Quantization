@@ -34,3 +34,5 @@ NumCpp_lib
 xtensor
 *.out
 time
+
+.pylintrc
