@@ -1,0 +1,44 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: 当前文件",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "julia",
+            "request": "launch",
+            "name": "Run active Julia file",
+            "program": "${file}",
+            "stopOnEntry": false,
+            "cwd": "${workspaceFolder}",
+            "args": [
+                "--M",
+                "8",
+                "--Ks",
+                "16",
+                "--D",
+                "32",
+                "--metric",
+                "dot_product",
+                "--datan",
+                "LastFM",
+                "-b",
+                "/amax/home/zhangjin/scann+/QuantizationEvaluation/src/Neighbors_jl/codebook.npy",
+                "-c",
+                "/amax/home/zhangjin/scann+/QuantizationEvaluation/src/Neighbors_jl/code_M8_K16_sample_num10000.npy",
+                "-q",
+                "/amax/home/zhangjin/scann+/QuantizationEvaluation/src/Neighbors_jl/queries_32D.npy",
+                "--tr100",
+                "/amax/home/zhangjin/scann+/QuantizationEvaluation/src/Neighbors_jl/true_neighbors_top100_32D.npy"
+            ],
+            "juliaEnv": "/amax/home/zhangjin/julia-1.6.2/bin/julia"
+        }
+    ]
+}
