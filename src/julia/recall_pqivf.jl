@@ -1,5 +1,6 @@
 using NPZ
 using ArgParse
+using Profile
 
 s = ArgParseSettings()
 include("./args.jl")
@@ -25,9 +26,10 @@ if length(size(pq_codebook))==1
         cc =reshape(cc, Ds, Ks)
         cc = transpose(cc)
         pq_codebook_[i,:,:] = cc
-        global pq_codebook = pq_codebook_
     end
 end
+pq_codebook = pq_codebook_
+
 # Assert length(size(pq_codebook)) == 3;
 vq_codes = NPZ.npzread(config["vq_codes"]);
 vq_codebook = NPZ.npzread(config["vq_codebook"]);
@@ -49,9 +51,11 @@ spi = SN_pqivf.SearchNeighbors_PQIVF(
     vq_codes,
     config["metric"])
 
-time = @elapsed neighbors_MA = SN_pqivf.get_neighbors(spi, queries, config["num_leaves_to_search"], 512);
+time = @elapsed neighbors_MA = SN_pqivf.get_neighbors(spi, queries, config["num_leaves_to_search"], config["topk"]);
 println(time);
 
+# Profile.print("/amax/home/zhangjin/scann+/recall_test_script/1.log")
 include("./utils.jl")
 recall_atN(neighbors_MA, tr100)
 
+show(to)

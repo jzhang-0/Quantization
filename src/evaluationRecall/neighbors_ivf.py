@@ -1,5 +1,5 @@
 import numpy as np
-from .neighbors import SearchNeighbors_PQ
+from .neighbors import SearchNeighbors_AQ, SearchNeighbors_PQ
 from .utils import timefn, for_all_methods
 
 class SearchNeighbors_PQIVF(SearchNeighbors_PQ):
@@ -115,6 +115,62 @@ class SearchNeighbors_PQIVF(SearchNeighbors_PQ):
 
         return neighbors_matrix
 
+
+    def ex_init(self, queries):
+        self.k_v = self.vq_code_book.shape[0]
+        inv_tab = [[] for i in range(self.k_v)]
+
+        data_index = 0
+        for i in self.vq_codes:
+            inv_tab[i].append(data_index)  
+            data_index += 1
+
+        self.inv_tab = inv_tab
+
+
+        self.queries = queries
+
+        l = len(inv_tab)
+        self.count = np.zeros(l)
+        for i in range(l):
+            self.count[i] = len(inv_tab[i])
+
+        inner_M = queries @ self.vq_code_book.T 
+        c_id = np.argsort(inner_M, axis=1)
+        self.c_id = np.fliplr(c_id)
+
+        row = np.arange(queries.shape[0])[:, np.newaxis]
+        self.inner_1 = inner_M[row, self.c_id]
+
+    #TODO: improved
+    def auto_centroid(self, i, fix_num):
+        q = self.queries[i]
+        qc_id = self.c_id[i]
+        num=0
+        
+        search_cid = []
+        for id in qc_id:
+            search_cid.append(id)
+            num += self.count[id]
+            if num > fix_num:
+                break
+        return len(search_cid)
+
+    @timefn
+    def neighbors_ivf_fixnum(self, queries, num_to_search, topk):
+        n = queries.shape[0]
+        neighbors_matrix = np.zeros((n, topk), dtype=int)
+        for i in range(n):
+            q = queries[i]
+
+            num_centroids_to_search = self.auto_centroid(i, num_to_search)
+            neighbors_matrix[i] = self.search_neighbors_IVFADC(q, num_centroids_to_search, topk)
+
+        return neighbors_matrix
+
+
+
+
     def pqivf_recall(self, queries, num_centroids_to_search, topk, ground_truth):
         ground_truth = np.array(ground_truth)
 
@@ -128,3 +184,119 @@ class SearchNeighbors_PQIVF(SearchNeighbors_PQ):
             ng = ground_truth.shape[1]
 
         print(f"recall {ng}@{nr} = {recall}")
+
+class SearchNeighbors_AQIVF(SearchNeighbors_AQ):
+    def __init__(self, M, K, D, aq_codebooks, aq_codes, vq_codebook, vq_codes, queries, metric="l2_distance") -> None:
+        super().__init__(M, K, D, aq_codebooks, aq_codes, metric=metric)
+
+        self.k_v = vq_codebook.shape[1]
+        inv_tab = [[] for i in range(self.k_v)]
+
+        data_index = 0
+        for i in vq_codes:
+            inv_tab[i].append(data_index)  
+            data_index += 1
+
+        self.inv_tab = inv_tab
+        self.code_book = vq_codebook
+        self.queries = queries
+
+        l = len(inv_tab)
+        self.count = np.zeros(l)
+        for i in range(l):
+            self.count[i] = len(inv_tab[i])
+
+        inner_M = queries @ vq_codebook
+        c_id = np.argsort(inner_M, axis=1)
+        self.c_id = np.fliplr(c_id)
+
+        row = np.arange(queries.shape[0])[:, np.newaxis]
+        self.inner_1 = inner_M[row, self.c_id] 
+
+    def transform(self, c_i):
+        """
+        c_i: 类中心的索引|单个query要找的类
+        return: q_ci
+        """
+        q_ci = []
+        for i in c_i:
+            q_ci += self.inv_tab[i]
+        return q_ci
+
+    def searched_centroid_num(self, q_c_id, num_to_search):
+        len = 0
+
+        c_num = 0
+        while len < num_to_search:
+            id = q_c_id[c_num]
+            # centroid_index += self.inv_tab[id]
+            len += self.count[id]
+            c_num += 1
+            assert c_num <= q_c_id.size
+
+        return c_num
+
+    # @profile
+    def search_neightbor_IVFADC_fixnum(self, C, Ind_Matrix, query, c_i, q_inner_1, num_to_search, inner, topk=64, timeinfo=0):
+        Table = C @ query
+        num = self.searched_centroid_num(c_i, num_to_search=num_to_search)
+        c_i = c_i[0:num]
+        q_inner_1 = q_inner_1[0:num]
+
+        for centroid_id, inner_1 in zip(c_i, q_inner_1):  # inner_1 is a number
+            index = self.inv_tab[centroid_id]
+            quantization_inner_2 = np.sum(Table[Ind_Matrix[index]], axis=1)  # array length is the number of i-th category
+            inner[index] = inner_1 + quantization_inner_2
+
+        q_ci = self.transform(c_i)
+        assert len(q_ci) >= topk
+
+        Ir = inner[q_ci]
+
+        ind__ = self._sort_topk_adc_score(Ir, topk)
+        q_ci_npy = np.array(q_ci)
+        ind = q_ci_npy[ind__]
+
+        return ind
+
+
+    @timefn
+    # @profile
+    def search_neightbors_IVFADC_fixnum(self, num_to_search, topk=512):
+        if topk > num_to_search:
+            topk = num_to_search
+        M = self.M
+        K = self.K
+
+        # Ind_Matrix = pq_codes + (np.arange(M)*K)[np.newaxis,:]
+        Ind_Matrix = self.aq_codes_2
+        C = self.aq_codebooks
+        queries = self.queries
+
+        print(f"the number of search items(number to search):{num_to_search}")
+        n = queries.shape[0]
+        neighbors = np.zeros((n, topk), dtype=int)
+        inner = np.zeros(Ind_Matrix.shape[0])
+
+        for c_i, q_inner_1, i in zip(self.c_id, self.inner_1, range(n)):
+            query = queries[i, ...]
+            Q_index = self.search_neightbor_IVFADC_fixnum(C, Ind_Matrix, query, c_i, q_inner_1, num_to_search, inner,
+                                                          topk=topk, timeinfo=0)
+            neighbors[i] = Q_index
+        return neighbors
+
+    # def par_search_neightbors_IVFADC_fixnum(self, C, Ind_Matrix, queries, num_to_search, topk=64):
+    #     if topk > num_to_search:
+    #         topk = num_to_search
+    #     print(f"the number of search items(number to search):{num_to_search}")
+    #     n = queries.shape[0]
+    #     neighbors = np.zeros((n, topk), dtype=int)
+    #     inner = np.zeros(Ind_Matrix.shape[0])
+
+    #     for c_i, q_inner_1, i in zip(self.c_id, self.inner_1, range(n)):
+    #         query = queries[i, ...]
+    #         Q_index = self.search_neightbor_IVFADC_fixnum(C, Ind_Matrix, query, c_i, q_inner_1, num_to_search, inner,
+    #                                                       topk=topk, timeinfo=0)
+    #         neighbors[i] = Q_index
+    #     return neighbors
+    

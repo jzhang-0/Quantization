@@ -1,6 +1,9 @@
 
 export 
-    AbstractSN,maxk!
+    AbstractSN,maxk!,to,@timeit
+
+using TimerOutputs
+const to = TimerOutput()
 abstract type AbstractSN end
 
 function maxk!(a, k::Int; initialized=false)
@@ -56,7 +59,7 @@ module SN_pq
         return lookuptable
     end
 
-    function compute_scores_(lookuptable::Array{Float64,2}, pq_codes::Array{Int,2})
+    function compute_scores_(lookuptable::Array{Float64,2}, pq_codes::AbstractArray{Int,2})
         n, M = size(pq_codes);
         scores = zeros(n);
         for i = 1:n
@@ -73,23 +76,23 @@ module SN_pq
         codebook = sp.pq_codebook;
         pq_codes = sp.pq_codes;
 
-        lookuptable = compute_table(codebook,query);    
-        scores = compute_scores_(lookuptable,pq_codes);
+        @timeit to "compute_table" lookuptable = compute_table(codebook,query);    
+        @timeit to "compute_scores_" scores = compute_scores_(lookuptable,pq_codes);
 
         return scores
     end
 
     function search_neighbors(sp::AbstractSN, query::Array{Float64,1},topk::Int)
         scores = compute_scores(sp, query)
-        indices = maxk!(scores, topk);
+        @timeit to "maxk!" indices = maxk!(scores, topk);
         return indices
     end
 
     function get_neighbors(sp::AbstractSN, queries::Array{Float64,2},topk::Int)
         n = size(queries)[1];
         neighbors_matrix = zeros(Int,n,topk)
-        Threads.@threads for i in 1:n
-        # for i in 1:n
+        # Threads.@threads 
+        for i in 1:n
             q = queries[i,:];
             neighbors_matrix[i,:] = search_neighbors(sp, q, topk);
         end
@@ -129,6 +132,7 @@ module SN_ivf
 end
 
 module SN_pqivf
+
     export SearchNeighbors_PQIVF
 
     using Main
@@ -182,19 +186,46 @@ module SN_pqivf
         end
         ids = convert(Array{Int64,1}, ids)
         scores_vq = convert(Array{Float64,1}, scores_vq)
+
         return ids, scores_vq
     end
 
+    function compute_scores_ivf(lookuptable::Array{Float64,2}, pq_codes::AbstractArray{Int,2}, ids::Array{Int64,1})
+        n0, M = size(pq_codes);
+        n = length(ids)
+        scores = zeros(n);
+        for i = 1:n
+            s_ = 0;
+            for j = 1:M
+                @inbounds s_ = s_ + lookuptable[j, pq_codes[ids[i],j]];
+            end
+            scores[i] = s_;
+        end
+        return scores    
+    end
+
     function search_neighbors(spi::AbstractSN, q::Vector{<:AbstractFloat}, num_centroid_tosearch::Int, topk::Int)
-        index,scores_v = coarse_search(spi, q, num_centroid_tosearch)
-        ids,scores_vq = id_indexed(spi, index, scores_v)
-        lookuptable = compute_table(spi.pq_codebook, q) # (M,Ks)
-        pq_codes_ids = spi.pq_codes[ids,:]
-        scores_pq = compute_scores_(lookuptable,pq_codes_ids)
-        scores = scores_vq + scores_pq
+        @timeit to "coarse_search" index,scores_v = coarse_search(spi, q, num_centroid_tosearch)
+        @timeit to "id_indexed" ids, scores_vq = id_indexed(spi, index, scores_v)  
+
+        # ix_ = sortperm(ids)
+        # ids = ids[ix_]
+        # scores_vq = scores_vq[ix_]        
+
+        # ids = 1:length(scores_vq)
+        # ids = convert(Array{Int64,1}, ids)
+
+        @timeit to "compute_table" lookuptable = compute_table(spi.pq_codebook, q) # (M,Ks)
+        @timeit to "ex1" pq_codes_ids = @view spi.pq_codes[ids,:]
+
+        # @timeit to "ex1" pq_codes_ids = spi.pq_codes[ids,:]
+        # @timeit to "compute_scores_" scores_pq = compute_scores_(lookuptable, pq_codes_ids)
+
+        @timeit to "compute_scores_ivf" scores_pq = compute_scores_ivf(lookuptable, spi.pq_codes, ids)
+        @timeit to "ex2" scores = scores_vq + scores_pq;                
         
-        len_s = length(scores)
-        if topk > len_s
+        @timeit to "ex3" len_s = length(scores);
+        @timeit to "ex4" if topk > len_s
             i_ = maxk!(scores, len_s)
             ids_ = ids[i_]
             ids_ = [ids_;repeat([0],topk - len_s)] 
@@ -205,11 +236,14 @@ module SN_pqivf
         return ids_
     end
 
+    # @timeit to 
     function get_neighbors(spi::AbstractSN, queries::Array{<:AbstractFloat,2}, num_centroid_tosearch::Int,  topk::Int)
         n = size(queries)[1];
         neighbors_matrix = zeros(Int,n,topk)
-        Threads.@threads for i in 1:n
+        # Threads.@threads 
+        for i in 1:n
             q = queries[i,:];
+            # @timeit to "sn" 
             neighbors_matrix[i,:] = search_neighbors(spi, q, num_centroid_tosearch, topk);
         end
         return neighbors_matrix

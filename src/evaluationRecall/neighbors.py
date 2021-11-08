@@ -11,7 +11,7 @@ def compute_recall(neighbors, ground_truth):
         total += np.intersect1d(gt_row, row).shape[0]
     return total / ground_truth.size
 
-def recall_atN_(neighbors_matrix,ground_truth):
+def recall_atN_(neighbors_matrix, ground_truth):
     """
     Args:
         neighbors_matrix:(nq,topK=512)
@@ -36,10 +36,10 @@ def recall_atN_(neighbors_matrix,ground_truth):
             print(f"recall {ng}@{tn} = {recall}")
     return recall_list,N_list
 
-def recall_atN(neighbors_matrix,ground_truth):
+def recall_atN(neighbors_matrix, ground_truth):
     """
     Args:
-        neighbors_matrix:(nq,topK=512)
+        neighbors_matrix:(nq, topK=512)
         ground_truth:(nq,) or (nq,>=10)
     """
     if ground_truth.ndim == 2 :
@@ -375,6 +375,32 @@ class SearchNeighbors_AQ(SearchNeighbors):
         for i in range(n):
             q = queries[i]
             neighbors_matrix[i] = self.search_neighbors(q, topk)
+
+        self.neighbors_matrix = neighbors_matrix
+
+        return neighbors_matrix
+
+    @timefn
+    def par_neighbors(self, queries, topk, njobs=njobs):
+        """
+        Parallel version of method neighbors
+        Args:
+            queries (np.ndarray): Input matrix with shape=(nq, D), where nq is the number of queries. 
+            topk (int): this method will return topk neighbors for each query
+            njobs: the process numbers use
+        Returns:
+            np.ndarray: topk neighbors for each query with shape=(nq, topk)  
+        
+        """
+        assert queries.ndim == 2
+        n = queries.shape[0]
+        neighbors_matrix = np.zeros((n, topk), dtype=int)
+
+        result = Parallel(n_jobs = njobs,backend='multiprocessing')(delayed(self.search_neighbors)(q,topk) for q in queries)
+
+        for i in range(n):
+            neighbors_matrix[i] = result[i]
+
 
         self.neighbors_matrix = neighbors_matrix
 
