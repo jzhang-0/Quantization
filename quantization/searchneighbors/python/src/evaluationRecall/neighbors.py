@@ -3,7 +3,6 @@ import numpy as np
 from joblib import Parallel, delayed, dump,load
 from .utils import timefn,for_all_methods
 njobs = 20 # os.cpu_count()//2
-from numba import jit
 
 def compute_recall(neighbors, ground_truth):
     total = 0
