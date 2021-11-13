@@ -1,0 +1,1 @@
+Implementation of [Quantization based Fast Inner Product Search](https://www.jmlr.org/proceedings/papers/v51/guo16a.pdf)
